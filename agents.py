@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
 import config
+import model
 
 
 # ---------------------------------------------------------------- claim record
@@ -162,6 +163,23 @@ def observe(target, refresh=False, offline=False):
                 )
                 break  # one claim per dimension per page keeps the digest readable
 
+        # The optional model pass. Claims born here are not trusted more than regex claims;
+        # they carry a verbatim quote as evidence and stage 3 confirms it against the stored
+        # bytes. A hallucinated quote dies in the drop log where everyone can see it.
+        if model.available():
+            for item in model.extract(text, target["name"]):
+                claims.append(
+                    Claim(
+                        target=target["name"],
+                        dimension=item["dimension"],
+                        text=item["text"],
+                        method="model-extract",
+                        source_url=url,
+                        retrieved_at=retrieved_at,
+                        evidence=item["quote"],
+                    )
+                )
+
     return claims, pages_read
 
 
@@ -264,7 +282,7 @@ def verify(claims):
             continue
         stored = visible_text(json.loads(path.read_text())["text"])
         if claim.evidence not in stored:
-            dropped.append((claim, "evidence gone from source, page changed since first seen"))
+            dropped.append((claim, "evidence not found in the stored copy of the source"))
             continue
 
         kept.append(claim)
@@ -292,7 +310,7 @@ def digest(results, run_id, offline=False):
         (r["target"], c, reason)
         for r in results
         for c, reason in r["dropped"]
-        if "page changed" in reason
+        if "not found in the stored copy" in reason
     ]
 
     lines.append(f"{len(pursue)} to pursue, {len(watch)} to watch, {len(below)} below the bar.")

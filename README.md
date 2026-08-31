@@ -63,11 +63,13 @@ confirms the evidence is still present. When a company rewrites a line of homepa
 that rested on it dies on the next run and says why:
 
 ```
-       drop  scale_band   evidence gone from source, page changed since first seen
+       drop  scale_band   evidence not found in the stored copy of the source
 ```
 
 Nobody planted that. It fires on its own whenever the world moves, which is what provenance decay
-actually looks like. In that particular run the dimension survived anyway, because a second claim on
+actually looks like. One honest detail about freshness: grounding checks the stored copy of each
+page, and the stored copy only changes when you run with `--refresh`. Run refreshed on whatever
+cadence you care about; the 30 day staleness cutoff kills old claims either way. In that particular run the dimension survived anyway, because a second claim on
 another page still supported it. That is correct behavior and worth watching for: redundant evidence
 is the difference between a score that wobbles and a score you can act on.
 
@@ -99,10 +101,47 @@ Overclaiming is the failure mode worth avoiding here, so:
 - **The gate is enforced in this program's runtime.** It is not a managed policy layer that a
   determined operator could not edit. A real deployment puts the boundary somewhere the running
   process has no authority to change.
-- **There is no LLM in the loop.** The extraction is literal string matching, which makes every claim
-  trivially auditable and makes this run for free. A production version would put a model in the
-  research and verification stages and would need evals before it earned that trust.
+- **There is no LLM in the loop by default.** The default extraction is literal string matching,
+  which makes every claim trivially auditable and makes this run for free. An optional model stage
+  exists (below), and it is held to the same standard as the regex: its claims must survive
+  verification or they die in the drop log.
+- **The seed notes are deliberately fabricated hearsay about real companies.** Nobody said those
+  things. They exist so you can watch unsourced intel die in stage 3, and it does, every run.
 - **No multi tenancy, no access control.** At five targets on one machine that would be theater.
+
+## Where the model goes, optionally
+
+There is a model seam, and it is deliberately narrow. Set one variable and stage 1 adds a
+model-backed observer alongside the matcher:
+
+```
+export ANTHROPIC_API_KEY=...     # optional; SIGNAL_MODEL overrides the default model
+python3 chain.py --refresh
+```
+
+The contract is the part worth reading (`model.py`): the model is one more untrusted researcher.
+Every claim it emits must carry a verbatim quote from the page, and verification confirms that
+quote against the stored bytes exactly the way it checks a regex claim. A hallucinated quote is
+not an exception or a warning. It is a dropped claim with a reason in the log, sitting next to
+the dead hearsay. Nothing downstream knows which observer produced a claim, and that is the
+design: trust attaches to evidence, never to the author.
+
+Without the key, nothing changes and everything above still runs for free.
+
+## Tests
+
+```
+python3 test_chain.py
+```
+
+Standard library unittest, no runner to install. The suite covers claim identity, ledger merging,
+rubric banding, every drop reason in verification, and the model contract with a mocked API,
+including the case where the model invents a quote and stage 3 kills it. CI runs the suite and an
+offline chain run on every push.
+
+## License
+
+MIT. See `LICENSE`.
 
 ## Why it is shaped this way
 

@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 import agents
 import config
+import model
 from store import get_store
 
 
@@ -54,6 +55,8 @@ def main():
     print()
     print(f"  signal-chain  {run_id}")
     print(f"  {len(targets)} targets   mode: {'offline' if args.offline else 'live'}")
+    model_line = f"on ({model.model_name()})" if model.available() else "off, deterministic matcher only (set ANTHROPIC_API_KEY to enable)"
+    print(f"  model:  {model_line}")
     print(f"  store:  {store.name}  ({store.detail})")
     print(f"  ledger: {carried} claim(s) carried in from previous runs")
 
