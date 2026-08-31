@@ -1,0 +1,42 @@
+[
+  {
+    "name": "PostHog",
+    "url": "https://posthog.com",
+    "notes": [
+      {
+        "dimension": "gtm_gap",
+        "text": "heard they are standing up a growth team this quarter"
+      }
+    ]
+  },
+  {
+    "name": "Vanta",
+    "url": "https://www.vanta.com",
+    "notes": [
+      {
+        "dimension": "paid_motion",
+        "text": "someone said they are spending heavily on paid search"
+      }
+    ]
+  },
+  {
+    "name": "Retool",
+    "url": "https://retool.com",
+    "notes": []
+  },
+  {
+    "name": "Metabase",
+    "url": "https://www.metabase.com",
+    "notes": [
+      {
+        "dimension": "scale_band",
+        "text": "believe they are around 200 people now"
+      }
+    ]
+  },
+  {
+    "name": "Linear",
+    "url": "https://linear.app",
+    "notes": []
+  }
+]
