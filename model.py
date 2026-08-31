@@ -31,8 +31,15 @@ DIMENSION_MEANINGS = {
 }
 
 
+def _key():
+    # .strip() is load bearing. The live test of this module found a real key that carried an
+    # invisible U+2028 line separator from a copy-paste, which http.client cannot encode into a
+    # header. Keys arrive dirty; treat them like any other untrusted input.
+    return os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
+
 def available():
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return bool(_key())
 
 
 def model_name():
@@ -45,7 +52,7 @@ def extract(page_text, target_name):
     the model was shown. Claims with unknown dimensions or empty quotes are discarded here;
     claims whose quote is not actually on the page are left for verification to kill, because
     catching the model lying is stage 3's job and it should show up in the drop log."""
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    key = _key()
     if not key:
         return []
 
@@ -58,6 +65,8 @@ def extract(page_text, target_name):
         '{"dimension": "<one of the four keys>", "finding": "<one short sentence>", '
         '"quote": "<an EXACT contiguous substring copied from the page text below>"}\n'
         "At most two items per dimension. If the page shows nothing for a dimension, omit it.\n"
+        "Only report evidence that SUPPORTS a dimension. If the page shows the opposite, for\n"
+        "example a company that explicitly avoids sales calls, omit that dimension entirely.\n"
         "The quote must be copied verbatim from the text. Do not paraphrase inside the quote.\n\n"
         f"PAGE TEXT:\n{excerpt}"
     )
@@ -82,13 +91,19 @@ def extract(page_text, target_name):
     try:
         raw = urllib.request.urlopen(request, timeout=60).read()
         payload = json.loads(raw)
-        text = payload["content"][0]["text"].strip()
+        if payload.get("type") == "error":
+            kind = payload.get("error", {}).get("type", "unknown")
+            print(f"  model extraction failed: api error {kind}", file=sys.stderr)
+            return []
+        # The first content block is not guaranteed to be text. Find the text block rather than
+        # assuming, which the live test of this module learned the hard way.
+        text = next(b["text"] for b in payload.get("content", []) if "text" in b).strip()
         if text.startswith("```"):
             text = text.strip("`")
             text = text[text.find("[") :]
         items = json.loads(text[text.find("[") : text.rfind("]") + 1])
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError,
-            KeyError, IndexError, ValueError) as error:
+            KeyError, IndexError, ValueError, StopIteration) as error:
         print(f"  model extraction failed: {type(error).__name__}", file=sys.stderr)
         return []
 
